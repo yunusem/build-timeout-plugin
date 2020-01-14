@@ -14,6 +14,7 @@ import hudson.plugins.build_timeout.impl.AbsoluteTimeOutStrategy;
 import hudson.plugins.build_timeout.impl.ElasticTimeOutStrategy;
 import hudson.plugins.build_timeout.impl.LikelyStuckTimeOutStrategy;
 import hudson.plugins.build_timeout.operations.AbortOperation;
+import hudson.plugins.build_timeout.operations.ExecuteShellOperation;
 import hudson.plugins.build_timeout.operations.FailOperation;
 import hudson.plugins.build_timeout.operations.WriteDescriptionOperation;
 import hudson.tasks.BuildWrapper;
@@ -34,6 +35,8 @@ import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
+
+
 
 /**
  * {@link BuildWrapper} that terminates a build if it's taking too long.
@@ -62,6 +65,8 @@ public class BuildTimeoutWrapper extends BuildWrapper {
      */
     @Deprecated
     public transient boolean writingDescription;
+
+    public transient String commandString;
     
     private final List<BuildTimeOutOperation> operationList;
     
@@ -73,27 +78,29 @@ public class BuildTimeoutWrapper extends BuildWrapper {
     }
     
     private static List<BuildTimeOutOperation> createCompatibleOperationList(
-            boolean failBuild, boolean writingDescription
+            boolean failBuild, boolean writingDescription, String commandString
     ) {
-        BuildTimeOutOperation lastOp = (failBuild)?new FailOperation():new AbortOperation();
+        /* Always perform execute shell*/
+        BuildTimeOutOperation alphaFirstOp = new ExecuteShellOperation(commandString);
+        BuildTimeOutOperation lastOp = (failBuild) ? new FailOperation() : new AbortOperation();
         if (!writingDescription) {
-            return Arrays.asList(lastOp);
+            return Arrays.<BuildTimeOutOperation>asList(alphaFirstOp, lastOp);
         }
         
-        String msg;
+        String msg = "";
         if (failBuild) {
             msg = Messages.Timeout_Message("{0}", Messages.Timeout_Failed());
         } else {
             msg = Messages.Timeout_Message("{0}", Messages.Timeout_Aborted());
         }
         BuildTimeOutOperation firstOp = new WriteDescriptionOperation(msg);
-        return Arrays.asList(firstOp, lastOp);
+        return Arrays.<BuildTimeOutOperation>asList(alphaFirstOp, firstOp, lastOp);
     }
     
     @Deprecated
     public BuildTimeoutWrapper(BuildTimeOutStrategy strategy, boolean failBuild, boolean writingDescription) {
         this.strategy = strategy;
-        this.operationList = createCompatibleOperationList(failBuild, writingDescription);
+        this.operationList = createCompatibleOperationList(failBuild, writingDescription,"");
         this.timeoutEnvVar = null;
     }
     
@@ -231,7 +238,7 @@ public class BuildTimeoutWrapper extends BuildWrapper {
         
         List<BuildTimeOutOperation> opList = getOperationList();
         if (opList == null) {
-            opList = createCompatibleOperationList(failBuild, writingDescription);
+            opList = createCompatibleOperationList(failBuild, writingDescription, commandString);
         }
         
         return new BuildTimeoutWrapper(strategy, opList, timeoutEnvVar);
