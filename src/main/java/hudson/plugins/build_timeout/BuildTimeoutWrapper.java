@@ -80,11 +80,9 @@ public class BuildTimeoutWrapper extends BuildWrapper {
     private static List<BuildTimeOutOperation> createCompatibleOperationList(
             boolean failBuild, boolean writingDescription, String commandString
     ) {
-        /* Always perform execute shell*/
-        BuildTimeOutOperation alphaFirstOp = new ExecuteShellOperation(commandString);
         BuildTimeOutOperation lastOp = (failBuild) ? new FailOperation() : new AbortOperation();
         if (!writingDescription) {
-            return Arrays.<BuildTimeOutOperation>asList(alphaFirstOp, lastOp);
+            return Arrays.asList(lastOp);
         }
         
         String msg = "";
@@ -94,7 +92,7 @@ public class BuildTimeoutWrapper extends BuildWrapper {
             msg = Messages.Timeout_Message("{0}", Messages.Timeout_Aborted());
         }
         BuildTimeOutOperation firstOp = new WriteDescriptionOperation(msg);
-        return Arrays.<BuildTimeOutOperation>asList(alphaFirstOp, firstOp, lastOp);
+        return Arrays.asList(firstOp, lastOp);
     }
     
     @Deprecated
